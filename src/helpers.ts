@@ -205,11 +205,20 @@ export function prepare(
       typeof global['process'] === 'object' &&
       typeof global['process']['versions'] === 'object' &&
       global['process']['versions']['node'] != null
-    const UniFormData: typeof FormData | undefined = useNativeFormData
+    let UniFormData: typeof FormData | undefined = useNativeFormData
       ? FormData
-      : useNodeFormData
-      ? eval(`require('form-data')`)
       : undefined
+
+    if (useNodeFormData) {
+      try {
+        // Dynamic require to prevent bundlers from including form-data in browser builds
+        // @ts-ignore
+        // eslint-disable-next-line
+        UniFormData = require('form-data')
+      } catch (e) {
+        // form-data module not available
+      }
+    }
     if (!UniFormData) {
       throw new Error('当前环境不支持 FormData')
     }
@@ -219,7 +228,9 @@ export function prepare(
     })
     Object.keys(fileData).forEach(key => {
       const options = (requestData[key] as FileData).getOptions()
-      const files = Array.isArray(fileData[key]) ? fileData[key] : [fileData[key]]
+      const files = Array.isArray(fileData[key])
+        ? fileData[key]
+        : [fileData[key]]
       files.forEach((file: Blob) => {
         formData.append(
           key,
